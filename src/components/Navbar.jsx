@@ -7,7 +7,7 @@ export default function Navbar() {
       <span className="font-bold">Billing System</span>
       <button className="bg-red-500 px-3 py-1 rounded" onClick={() => {
         localStorage.removeItem('user');
-        router.push('/login');
+        router.push('/');
       }}>Logout</button>
     </div>
   );

@@ -1,10 +1,10 @@
-// ✅ Please replace your <AdminPage /> with the following component:
 'use client';
 
 import { useEffect, useState } from 'react';
 import axios from 'axios';
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable'; // ✅ correct import
+
 import Navbar from '@/components/Navbar';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -41,20 +41,26 @@ export default function AdminPage() {
     setCashiers(res.data);
   };
 
-  const exportPDF = () => {
-    const doc = new jsPDF();
-    doc.text('Bill Report', 14, 10);
-    doc.autoTable({
-      head: [['Customer', 'Cashier', 'Total', 'Date']],
-      body: filteredBills.map((b) => [
-        b.customerName,
-        b.cashier,
-        `₹${b.total}`,
-        new Date(b.createdAt).toLocaleDateString()
-      ])
-    });
-    doc.save('report.pdf');
-  };
+const exportPDF = () => {
+  const doc = new jsPDF();
+
+  doc.text('Bill Report', 14, 10);
+
+  autoTable(doc, {
+    startY: 20,
+    head: [['Customer', 'Cashier', 'Total', 'Date']],
+    body: filteredBills.map(b => [
+      b.customerName,
+      b.cashier,
+      `Rs. ${b.total}`,
+      new Date(b.createdAt).toLocaleDateString('en-GB') // dd-mm-yyyy
+    ])
+  });
+
+  doc.save('report.pdf');
+};
+
+
 
   const handleCashierSubmit = async (e) => {
     e.preventDefault();
@@ -90,19 +96,28 @@ export default function AdminPage() {
   };
 
   const chartData = {
-    labels: [...new Set(filteredBills.map(b => new Date(b.createdAt).toLocaleDateString()))],
+    labels: [...new Set(filteredBills.map(b => {
+      const d = new Date(b.createdAt);
+      return `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}`;
+    }))],
     datasets: [{
       label: 'Total Amount',
       data: filteredBills.reduce((acc, b) => {
-        const date = new Date(b.createdAt).toLocaleDateString();
+        const d = new Date(b.createdAt);
+        const date = `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}`;
         acc[date] = (acc[date] || 0) + b.total;
         return acc;
       }, {}),
       backgroundColor: 'rgba(59, 130, 246, 0.6)',
     }]
   };
-
   chartData.datasets[0].data = chartData.labels.map(date => chartData.datasets[0].data[date] || 0);
+
+  const summaryByCashier = cashiers.map(c => {
+    const theirBills = bills.filter(b => b.cashier === c.name);
+    const total = theirBills.reduce((sum, b) => sum + b.total, 0);
+    return { name: c.name, count: theirBills.length, total };
+  });
 
   return (
     <>
@@ -119,6 +134,31 @@ export default function AdminPage() {
           <button onClick={() => setShowPopup(true)} className="bg-blue-600 text-white px-5 py-2 rounded-full shadow-md hover:scale-105 transition">
             ➕ Add New Cashier
           </button>
+        </div>
+
+        {/* Billing Summary by Cashier */}
+        <div className="overflow-x-auto mb-10 rounded-xl shadow-md border border-gray-300">
+          <h2 className="text-xl font-semibold bg-yellow-100 p-4 rounded-t-xl">Billing Summary by Cashier</h2>
+          <table className="min-w-full text-sm bg-white rounded-b-xl text-left">
+            <thead className="bg-yellow-50 border-b font-semibold">
+              <tr>
+                <th className="p-3">#</th>
+                <th className="p-3">Cashier</th>
+                <th className="p-3">Bills</th>
+                <th className="p-3">Total Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {summaryByCashier.map((c, i) => (
+                <tr key={c.name} className="border-b hover:bg-gray-50">
+                  <td className="p-3">{i + 1}</td>
+                  <td className="p-3">{c.name}</td>
+                  <td className="p-3">{c.count}</td>
+                  <td className="p-3">₹{c.total}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
 
         {/* Filters */}
@@ -178,7 +218,7 @@ export default function AdminPage() {
           <Bar data={chartData} />
         </div>
 
-        {/* Cashier Table */}
+        {/* Cashier List Table */}
         <div className="overflow-x-auto rounded-2xl shadow-2xl border border-gray-200">
           <h2 className="text-xl font-semibold p-4 bg-green-100 rounded-t-2xl">Cashier List</h2>
           <table className="min-w-full text-left bg-white rounded-b-2xl text-sm">
